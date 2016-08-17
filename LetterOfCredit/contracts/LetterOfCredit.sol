@@ -23,7 +23,6 @@ contract LetterOfCredit {
   bool sellerConfirms = false;
   bool finalized = false;
   
-  bool minDepositReached = false;
   bool costOfGoodsReached = false; 
 
   address goodsOwnedBy;
@@ -44,6 +43,8 @@ contract LetterOfCredit {
     expirationDate = now + expiresInDays * 1 days;
     costOfGoods = costOfGoodsInEther * 1 ether;
 
+    status = Status.Created;
+
     goodsOwnedBy = beneficiary; // initially, goods are owned by the seller
     liable = beneficiary;
   }
@@ -61,8 +62,9 @@ contract LetterOfCredit {
       // TODO check result of send
       this.send(amount);
     
-    if ((newBalance >= minDeposit) && !minDepositReached)
+    if ((newBalance >= minDeposit) && (status == Status.Created) {
       status = Status.Approved;
+    }
 
     if ((newBalance >= costOfGoods) && !costOfGoodsReached)
       costOfGoodsReached = true;
@@ -85,24 +87,31 @@ contract LetterOfCredit {
     // check whether we are not beyond the expiry date
     if (now > expirationDate) throw;
     // change status to "shipped"
-    if (! sellerConfirms) throw;
+    if (!sellerConfirms) throw;
 
     if (liable != beneficiary) throw;
 
-    status = Status.Shipped; 
-    liable = carrier;
+    if (status == Status.SellerConfirmed) {
+      status = Status.Shipped;
+      liable = carrier;
+    }
+    else throw;    
   }  
 
   function goodsDelivered() {
     if (msg.sender != carrier) throw;
-
-    status = Status.Delivered;
+    if (status == Status.Shipped)
+      status = Status.Delivered;
+    else throw;
   }
 
   function receiveGoods() {
     if (msg.sender != applicant) throw;
-    status = Status.Finalized;
-    liable = applicant;    
+    
+    if (status == Status.Delivered) {
+      status = Status.Finalized;
+      liable = applicant;
+    } else throw;
   }
-  
+
 }
