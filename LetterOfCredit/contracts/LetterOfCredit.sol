@@ -12,6 +12,7 @@ contract LetterOfCredit {
   uint expirationDate; // do we need place/phisical address?
   uint costOfGoods;
   uint minDeposit;
+  uint depositBalance = 0;
 
   // probably, we will need a hash of some external document
 
@@ -27,6 +28,8 @@ contract LetterOfCredit {
 
   address goodsOwnedBy;
   address liable;
+
+  event StatusChanged(Status newStatus);
 
   function LetterOfCredit (address theApplicant,
                            address theBeneficiary,
@@ -55,15 +58,18 @@ contract LetterOfCredit {
     if (now > expirationDate) throw;
     
     uint amount = msg.value;
-    uint currentBalance = this.balance;
-    uint newBalance = currentBalance + amount;
-
-    if (newBalance <= costOfGoods)
-      // TODO check result of send
-      this.send(amount);
+    uint currentBalance = depositBalance;
+    uint newBalance = currentBalance + amount;    
     
-    if ((newBalance >= minDeposit) && (status == Status.Created) {
+    if (newBalance <= costOfGoods) {
+      // TODO check result of send
+      //if (!this.send(amount)) throw;
+      depositBalance = newBalance;
+    }
+    
+    if ((newBalance >= minDeposit) && (status == Status.Created)) {
       status = Status.Approved;
+      StatusChanged(status);
     }
 
     if ((newBalance >= costOfGoods) && !costOfGoodsReached)
@@ -71,9 +77,25 @@ contract LetterOfCredit {
 
     if (costOfGoodsReached && shipped) {
       // TODO check result of send
-      beneficiary.send(costOfGoods);
+      if (!beneficiary.send(costOfGoods)) throw;
       // TODO could be some leftovers on the balance, we should send them back to the bank (or buyer)
+      }
     }
+
+  function queryStatus() returns (string s) {
+    if (status == Status.Created)
+      return "created";
+    if (status == Status.Approved)
+      return "approved";
+    if (status == Status.SellerConfirms)
+      return "SellerConfirms";
+    if (status == Status.Shipped)
+      return "shipped";
+    if (status == Status.Delivered)
+      return "delivered";
+    if (status == Status.Finalized)
+      return "finalized";    
+    return "unknown";
   }
 
   function sellerConfirmsShipping() {
@@ -91,7 +113,7 @@ contract LetterOfCredit {
 
     if (liable != beneficiary) throw;
 
-    if (status == Status.SellerConfirmed) {
+    if (status == Status.SellerConfirms) {
       status = Status.Shipped;
       liable = carrier;
     }
